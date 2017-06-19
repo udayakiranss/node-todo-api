@@ -35,24 +35,7 @@ var UserSchema  = new mongoose.Schema({
     }]
 });
 
-UserSchema.pre('save',function(next){
-    var user = this;
-    if(user.isModified('password')){
-        var password = user.password;
-        bcrypt.genSalt(10,(err,salt)=>{
-            bcrypt.hash(password,salt,(err,hash)=>{
-                if(!err){
-                    user.password = hash;
-                    next();
-                }else{
-                    console.log(err);
-                }
-            });    
-        });
-    }else{
-        next();
-    }
-});
+
 
 UserSchema.methods.toJSON = function(){
     var user = this;
@@ -70,9 +53,11 @@ UserSchema.methods.generateAuthToken = function(){
     });
 };
 
+
 UserSchema.statics.findByToken = function(token){
     var User = this;
     var decoded;
+    console.log('Token:',token);
     try{
        decoded =jwt.verify(token,'abc123');
     }catch(e){
@@ -87,6 +72,50 @@ UserSchema.statics.findByToken = function(token){
         'tokens.access':'auth'
     });
 };
+
+
+
+UserSchema.statics.findByCredentials = function(email,password){
+  var User = this;
+  console.log('email:',email);
+  return User.findOne({email}).then((user) => {
+    if (!user) {        
+      return Promise.reject();
+    }
+
+    return new Promise((resolve, reject) => {
+      // Use bcrypt.compare to compare password and user.password
+      bcrypt.compare(password, user.password, (err, res) => {
+        if (res) {
+          resolve(user);
+        } else {
+          reject();
+        }
+      });
+    });
+  });
+};
+
+
+UserSchema.pre('save',function(next){
+    var user = this;
+    if(user.isModified('password')){
+        var password = user.password;
+        bcrypt.genSalt(10,(err,salt)=>{
+            bcrypt.hash(password,salt,(err,hash)=>{
+                if(!err){
+                    user.password = hash;
+                    next();
+                }else{
+                    console.log(err);
+                    next();
+                }
+            });    
+        });
+    }else{
+        next();
+    }
+});
 
 var User = mongoose.model('User',UserSchema);
 
